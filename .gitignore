@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.vitest-cache/
+.shellguard/
+
+# Build-history files (PLAN, REVIEW, TEST_REPORT, BUILDER_NOTES)
+# stay tracked here in the mcp-factory builder branch for audit-trail
+# purposes. They are stripped at promotion time via rsync --exclude
+# (see mcp-factory/scripts/promote-to-oss-promo.md pattern) and never
+# enter the published npm tarball (see package.json `files` array).

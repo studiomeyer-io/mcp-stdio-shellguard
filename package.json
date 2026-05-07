@@ -1,0 +1,80 @@
+{
+  "name": "mcp-stdio-shellguard",
+  "version": "0.1.0",
+  "description": "Defense-in-depth bundle for MCP stdio servers: drop-in guard for child_process.exec/spawn, AST audit CLI for unsanitized shell calls, and a reference MCP server that exposes both. Closes the Ox-Security 200k-server stdio-RCE class.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "bin": {
+    "mcp-shellguard-audit": "./dist/cli.js",
+    "mcp-stdio-shellguard-demo": "./dist/server.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "HOOK_RECIPES.md"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "prepack": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:self": "node dist/cli.js scan src --severity-floor LOW",
+    "inspect:smoke": "node scripts/inspect-smoke.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "security",
+    "shell-injection",
+    "rce",
+    "stdio",
+    "audit",
+    "sandbox",
+    "allowlist",
+    "child_process",
+    "defensive-security"
+  ],
+  "author": "Matthias Meyer (StudioMeyer)",
+  "license": "MIT",
+  "homepage": "https://github.com/studiomeyer-io/mcp-stdio-shellguard",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/studiomeyer-io/mcp-stdio-shellguard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/studiomeyer-io/mcp-stdio-shellguard/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@typescript-eslint/parser": "^8.59.2",
+    "@typescript-eslint/types": "^8.59.2",
+    "commander": "^12.1.0",
+    "fast-glob": "^3.3.3",
+    "picomatch": "^4.0.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "^0.21.2",
+    "@types/node": "^22.10.0",
+    "@types/picomatch": "^3.0.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.0"
+  }
+}
