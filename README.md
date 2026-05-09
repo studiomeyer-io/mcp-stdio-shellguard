@@ -1,6 +1,13 @@
 # mcp-stdio-shellguard
 
-Defense-in-depth bundle for MCP stdio servers. Wraps `child_process.exec/spawn`
+
+<!-- badges -->
+[![npm version](https://img.shields.io/npm/v/mcp-stdio-shellguard?style=flat-square&color=cb3837&logo=npm&label=npm)](https://www.npmjs.com/package/mcp-stdio-shellguard)
+[![npm downloads](https://img.shields.io/npm/dm/mcp-stdio-shellguard?style=flat-square&color=cb3837&logo=npm&label=installs%2Fmo)](https://www.npmjs.com/package/mcp-stdio-shellguard)
+![License](https://img.shields.io/github/license/studiomeyer-io/mcp-stdio-shellguard?style=flat-square&color=22c55e&label=license)
+![Last commit](https://img.shields.io/github/last-commit/studiomeyer-io/mcp-stdio-shellguard?style=flat-square&color=88c0d0&label=updated)
+![GitHub stars](https://img.shields.io/github/stars/studiomeyer-io/mcp-stdio-shellguard?style=flat-square&color=ffd700&logo=github&label=stars)
+<!-- /badges -->Defense-in-depth bundle for MCP stdio servers. Wraps `child_process.exec/spawn`
 with allowlist + sandbox + replay-detection, plus an AST audit CLI (`mcp-shellguard-audit`)
 that scans MCP server sources for unsanitized shell calls. Closes the Ox-Security
 MCP stdio-RCE class (200k vulnerable servers, May 2026 disclosure).
