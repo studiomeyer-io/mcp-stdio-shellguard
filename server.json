@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.studiomeyer/stdio-shellguard",
+  "title": "MCP stdio ShellGuard",
+  "description": "Defense-in-depth for MCP stdio servers: shell-injection guard, AST audit CLI, RCE blocking.",
+  "repository": {
+    "url": "https://github.com/studiomeyer-io/mcp-stdio-shellguard",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "mcp-stdio-shellguard",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

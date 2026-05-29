@@ -1,6 +1,7 @@
 {
   "name": "mcp-stdio-shellguard",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "mcpName": "io.studiomeyer/stdio-shellguard",
   "description": "Defense-in-depth bundle for MCP stdio servers: drop-in guard for child_process.exec/spawn, AST audit CLI for unsanitized shell calls, and a reference MCP server that exposes both. Closes the Ox-Security 200k-server stdio-RCE class.",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,7 +18,8 @@
   },
   "bin": {
     "mcp-shellguard-audit": "./dist/cli.js",
-    "mcp-stdio-shellguard-demo": "./dist/server.js"
+    "mcp-stdio-shellguard-demo": "./dist/server.js",
+    "mcp-stdio-shellguard": "./dist/server.js"
   },
   "files": [
     "dist",
