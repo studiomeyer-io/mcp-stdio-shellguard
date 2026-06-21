@@ -65,6 +65,20 @@ export async function guardSpawn(
       { file: input.file },
     );
   }
+  if (!Array.isArray(input.args)) {
+    throw new ShellguardDenied("args must be a string[] vector", {
+      toolName: input.toolName,
+    });
+  }
+  // Defense-in-depth: reject non-string args (see guardExec for the
+  // rationale — coercion can slip a non-string past an argsPattern).
+  const badArgIndex = input.args.findIndex((a) => typeof a !== "string");
+  if (badArgIndex !== -1) {
+    throw new ShellguardDenied(
+      `args[${badArgIndex}] must be a string, got ${typeof input.args[badArgIndex]}`,
+      { toolName: input.toolName, index: badArgIndex },
+    );
+  }
   const match = deps.registry.match({
     toolName: input.toolName,
     executable: input.file,

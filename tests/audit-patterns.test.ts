@@ -256,4 +256,28 @@ describe("__test__ helpers", () => {
     const c = firstCall("f({})").arguments[0];
     expect(__test__.objectHasShellTrue(c)).toBe(false);
   });
+
+  it("objectHasShellTrue catches string shell + dynamic shell, ignores falsy", () => {
+    // string shell path → shell execution
+    const a = firstCall('f({ shell: "/bin/bash" })').arguments[0];
+    expect(__test__.objectHasShellTrue(a)).toBe(true);
+    // dynamic shell value we cannot prove is falsy → flag conservatively
+    const b = firstCall("f({ shell: shVar })").arguments[0];
+    expect(__test__.objectHasShellTrue(b)).toBe(true);
+    const c = firstCall("f({ shell: opts.sh })").arguments[0];
+    expect(__test__.objectHasShellTrue(c)).toBe(true);
+    // empty string shell is NOT a shell (Node treats it as no shell)
+    const d = firstCall('f({ shell: "" })').arguments[0];
+    expect(__test__.objectHasShellTrue(d)).toBe(false);
+  });
+
+  it("isChildProcessMethod resolves bare + dotted child_process callees", () => {
+    expect(__test__.isChildProcessMethod("exec", "exec")).toBe(true);
+    expect(__test__.isChildProcessMethod("child_process.exec", "exec")).toBe(
+      true,
+    );
+    expect(__test__.isChildProcessMethod("cp.spawn", "spawn")).toBe(true);
+    expect(__test__.isChildProcessMethod("fs.readFile", "exec")).toBe(false);
+    expect(__test__.isChildProcessMethod(null, "exec")).toBe(false);
+  });
 });

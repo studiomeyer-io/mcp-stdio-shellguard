@@ -17,6 +17,7 @@ import {
   type AuditFinding,
   type AuditSeverity,
 } from "./patterns.js";
+import { resolveBindings, resolveCallMethod } from "./bindings.js";
 import { SUGGESTED_FIX } from "./suggested-fix.js";
 
 export interface AuditScanOptions {
@@ -180,6 +181,11 @@ export async function scanPath(
 
     filesScanned++;
 
+    // Pre-pass: resolve child_process bindings (renamed imports,
+    // require-destructures, promisify(exec) locals) so calls made through
+    // an alias are still attributed to the right method. See ./bindings.ts.
+    const bindings = resolveBindings(ast);
+
     walk(ast, (node) => {
       if (node.type !== "CallExpression" && node.type !== "NewExpression")
         return;
@@ -191,7 +197,8 @@ export async function scanPath(
               type: "CallExpression",
             } as unknown as TSESTree.CallExpression)
           : (node as TSESTree.CallExpression);
-      const matches = evaluateCall(ce);
+      const resolvedMethod = resolveCallMethod(ce, bindings);
+      const matches = evaluateCall(ce, resolvedMethod);
       if (matches.length === 0) return;
       const line = node.loc?.start.line ?? 0;
       if (ignoreMap.perLine.has(line)) return;

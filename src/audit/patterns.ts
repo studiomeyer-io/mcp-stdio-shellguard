@@ -42,6 +42,15 @@ interface AnalysedCall {
   /** Final dotted-name like `child_process.exec` if resolvable. */
   callee: string | null;
   args: TSESTree.CallExpressionArgument[];
+  /**
+   * Canonical child_process method this call resolves to when the callee
+   * is a *renamed* binding the scanner proved originates from
+   * child_process (e.g. `execAsync` from `promisify(exec)` resolves to
+   * `"exec"`). When set, the rules treat the call as that method even
+   * though `callee` is the alias. Purely additive on top of the
+   * name-based matching above. See ./bindings.ts.
+   */
+  resolvedMethod?: string | null;
 }
 
 function getCalleeName(node: TSESTree.CallExpression): string | null {
@@ -71,6 +80,17 @@ function isChildProcessMethod(name: string | null, method: string): boolean {
 
 function analyseCall(node: TSESTree.CallExpression): AnalysedCall {
   return { callee: getCalleeName(node), args: [...node.arguments] };
+}
+
+/**
+ * True when `call` invokes child_process `method`, via either the
+ * name-based matcher (`child_process.exec`, bare `exec`, …) OR a proven
+ * alias the binding resolver mapped to `method`. This keeps the original
+ * behaviour intact (no finding is lost) while catching renamed bindings.
+ */
+function callIsMethod(call: AnalysedCall, method: string): boolean {
+  if (isChildProcessMethod(call.callee, method)) return true;
+  return call.resolvedMethod === method;
 }
 
 function isLiteralString(node: TSESTree.Node | undefined): boolean {
@@ -115,7 +135,30 @@ function objectHasShellTrue(node: TSESTree.Node | undefined): boolean {
     const key = prop.key;
     if (key.type === "Identifier" && key.name === "shell") {
       const value = prop.value;
-      if (value.type === "Literal" && value.value === true) return true;
+      // `shell: true` is the obvious case. But Node ALSO runs the command
+      // through a shell when `shell` is a non-empty STRING path
+      // (`{ shell: "/bin/bash" }` / `{ shell: "cmd.exe" }`), which re-opens
+      // the exact string-concatenation attack surface. The cold-cross
+      // review of v0.1.1 found the literal-`true`-only check let
+      // `spawn(file, args, { shell: "/bin/sh" })` slip through as a mere
+      // MEDIUM. Treat any string shell — and any *dynamic* shell value
+      // (identifier / member / interpolated template) we cannot prove is
+      // falsy — as shell execution.
+      if (value.type === "Literal") {
+        if (value.value === true) return true;
+        if (typeof value.value === "string" && value.value.length > 0) {
+          return true;
+        }
+        // `shell: false` / `shell: ""` / `shell: 0` → not a shell.
+        continue;
+      }
+      if (
+        value.type === "Identifier" ||
+        value.type === "MemberExpression" ||
+        value.type === "TemplateLiteral"
+      ) {
+        return true;
+      }
     }
   }
   return false;
@@ -137,32 +180,32 @@ export const PATTERN_RULES: readonly PatternRule[] = [
     id: "exec_template_literal_with_input",
     severity: "CRITICAL",
     label: "exec(`...${userInput}...`)",
-    test: ({ callee, args }) =>
-      isChildProcessMethod(callee, "exec") &&
-      args.length >= 1 &&
-      args[0] !== undefined &&
-      templateHasInterpolation(args[0]),
+    test: (call) =>
+      callIsMethod(call, "exec") &&
+      call.args.length >= 1 &&
+      call.args[0] !== undefined &&
+      templateHasInterpolation(call.args[0]),
   },
   {
     id: "exec_dynamic_string",
     severity: "CRITICAL",
     label: "exec(<dynamic-string>)",
-    test: ({ callee, args }) =>
-      isChildProcessMethod(callee, "exec") &&
-      args.length >= 1 &&
-      args[0] !== undefined &&
-      !templateHasInterpolation(args[0]) &&
-      isDynamicString(args[0]),
+    test: (call) =>
+      callIsMethod(call, "exec") &&
+      call.args.length >= 1 &&
+      call.args[0] !== undefined &&
+      !templateHasInterpolation(call.args[0]) &&
+      isDynamicString(call.args[0]),
   },
   {
     id: "exec_sync_dynamic_string",
     severity: "CRITICAL",
     label: "execSync(<dynamic-string>)",
-    test: ({ callee, args }) =>
-      isChildProcessMethod(callee, "execSync") &&
-      args.length >= 1 &&
-      args[0] !== undefined &&
-      isDynamicString(args[0]),
+    test: (call) =>
+      callIsMethod(call, "execSync") &&
+      call.args.length >= 1 &&
+      call.args[0] !== undefined &&
+      isDynamicString(call.args[0]),
   },
   {
     id: "eval_near_child_process",
@@ -182,32 +225,38 @@ export const PATTERN_RULES: readonly PatternRule[] = [
     id: "spawn_dynamic_file_args",
     severity: "HIGH",
     label: "spawn(<dynamic>, <dynamic-args>)",
-    test: ({ callee, args }) =>
-      isChildProcessMethod(callee, "spawn") &&
-      args.length >= 1 &&
-      args[0] !== undefined &&
-      isDynamicString(args[0]) &&
-      (args.length < 2 || (args[1] !== undefined && isDynamicArray(args[1]))),
+    // `spawnSync` shares the threat model with `spawn` — the cold-cross
+    // review of v0.1.1 found the sync variant was uncovered entirely.
+    test: (call) =>
+      (callIsMethod(call, "spawn") || callIsMethod(call, "spawnSync")) &&
+      call.args.length >= 1 &&
+      call.args[0] !== undefined &&
+      isDynamicString(call.args[0]) &&
+      (call.args.length < 2 ||
+        (call.args[1] !== undefined && isDynamicArray(call.args[1]))),
   },
   {
     id: "exec_file_dynamic",
     severity: "HIGH",
     label: "execFile(<dynamic>)",
-    test: ({ callee, args }) =>
-      isChildProcessMethod(callee, "execFile") &&
-      args.length >= 1 &&
-      args[0] !== undefined &&
-      isDynamicString(args[0]),
+    // `execFileSync` is the same risk class as `execFile`.
+    test: (call) =>
+      (callIsMethod(call, "execFile") || callIsMethod(call, "execFileSync")) &&
+      call.args.length >= 1 &&
+      call.args[0] !== undefined &&
+      isDynamicString(call.args[0]),
   },
   {
     id: "shell_true_option",
     severity: "HIGH",
     label: "shell: true",
-    test: ({ callee, args }) => {
+    test: (call) => {
       if (
-        !isChildProcessMethod(callee, "spawn") &&
-        !isChildProcessMethod(callee, "exec") &&
-        !isChildProcessMethod(callee, "execFile")
+        !callIsMethod(call, "spawn") &&
+        !callIsMethod(call, "spawnSync") &&
+        !callIsMethod(call, "exec") &&
+        !callIsMethod(call, "execFile") &&
+        !callIsMethod(call, "execFileSync")
       ) {
         return false;
       }
@@ -216,8 +265,10 @@ export const PATTERN_RULES: readonly PatternRule[] = [
       // `spawn(file, args, options, callback)` the options object is
       // not the final arg, so a "last arg only" check missed
       // `{ shell: true }` whenever a callback was passed. Cold-cross
-      // review (S991-Folge) flagged this as HIGH.
-      return args.some((arg) => objectHasShellTrue(arg));
+      // review (S991-Folge) flagged this as HIGH. `objectHasShellTrue`
+      // also now catches `{ shell: "/bin/sh" }` (string shell) and any
+      // dynamic shell value (v0.1.2 cold-cross follow-up).
+      return call.args.some((arg) => objectHasShellTrue(arg));
     },
   },
   {
@@ -233,28 +284,29 @@ export const PATTERN_RULES: readonly PatternRule[] = [
     id: "spawn_literal_dynamic_args",
     severity: "MEDIUM",
     label: "spawn(<literal>, <dynamic-args>)",
-    test: ({ callee, args }) =>
-      isChildProcessMethod(callee, "spawn") &&
-      args.length >= 2 &&
-      args[0] !== undefined &&
-      args[1] !== undefined &&
-      isLiteralString(args[0]) &&
-      isDynamicArray(args[1]),
+    test: (call) =>
+      (callIsMethod(call, "spawn") || callIsMethod(call, "spawnSync")) &&
+      call.args.length >= 2 &&
+      call.args[0] !== undefined &&
+      call.args[1] !== undefined &&
+      isLiteralString(call.args[0]) &&
+      isDynamicArray(call.args[1]),
   },
   {
     id: "unbounded_buffer",
     severity: "LOW",
     label: "no maxBuffer",
-    test: ({ callee, args }) => {
+    test: (call) => {
       if (
-        !isChildProcessMethod(callee, "exec") &&
-        !isChildProcessMethod(callee, "execFile") &&
-        !isChildProcessMethod(callee, "execSync")
+        !callIsMethod(call, "exec") &&
+        !callIsMethod(call, "execFile") &&
+        !callIsMethod(call, "execFileSync") &&
+        !callIsMethod(call, "execSync")
       ) {
         return false;
       }
       // search for an options object with maxBuffer
-      for (const arg of args) {
+      for (const arg of call.args) {
         if (arg.type === "ObjectExpression") {
           for (const prop of arg.properties) {
             if (
@@ -275,16 +327,18 @@ export const PATTERN_RULES: readonly PatternRule[] = [
     id: "missing_timeout",
     severity: "LOW",
     label: "no timeout",
-    test: ({ callee, args }) => {
+    test: (call) => {
       if (
-        !isChildProcessMethod(callee, "spawn") &&
-        !isChildProcessMethod(callee, "exec") &&
-        !isChildProcessMethod(callee, "execFile") &&
-        !isChildProcessMethod(callee, "execSync")
+        !callIsMethod(call, "spawn") &&
+        !callIsMethod(call, "spawnSync") &&
+        !callIsMethod(call, "exec") &&
+        !callIsMethod(call, "execFile") &&
+        !callIsMethod(call, "execFileSync") &&
+        !callIsMethod(call, "execSync")
       ) {
         return false;
       }
-      for (const arg of args) {
+      for (const arg of call.args) {
         if (arg.type === "ObjectExpression") {
           for (const prop of arg.properties) {
             if (
@@ -321,9 +375,20 @@ export function severityAtOrAbove(
  * Apply rules to one CallExpression. Each rule is at most fired once
  * per call, but a single call may match multiple rules (e.g. dynamic
  * exec + missing timeout). The caller gets the union.
+ *
+ * `resolvedMethod` lets the scanner pass a canonical child_process
+ * method name when the callee is a *renamed* binding it proved comes
+ * from child_process (see ./bindings.ts). It is optional and purely
+ * additive — omitting it preserves the original name-based behaviour.
  */
-export function evaluateCall(node: TSESTree.CallExpression): PatternMatch[] {
+export function evaluateCall(
+  node: TSESTree.CallExpression,
+  resolvedMethod?: string | null,
+): PatternMatch[] {
   const analysed = analyseCall(node);
+  if (resolvedMethod !== undefined && resolvedMethod !== null) {
+    analysed.resolvedMethod = resolvedMethod;
+  }
   const matches: PatternMatch[] = [];
   for (const rule of PATTERN_RULES) {
     if (rule.test(analysed)) {
@@ -340,4 +405,5 @@ export const __test__ = {
   isLiteralArray,
   isDynamicArray,
   objectHasShellTrue,
+  isChildProcessMethod,
 };

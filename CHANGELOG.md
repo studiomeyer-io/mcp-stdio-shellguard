@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-21
+
+### Security — audit alias-bypass class closed
+
+A cold-cross follow-up review of v0.1.1 found that the AST audit
+(`mcp-shellguard-audit`) attributed a `child_process` call to its method
+only by the *callee name* (`child_process.exec`, bare `exec`, …). Four
+false-negative shapes — all common in real MCP servers — therefore
+passed the scan with zero findings, giving false confidence that a
+server was clean:
+
+- **`const execAsync = promisify(exec); execAsync(`ls ${x}`)`** — the
+  canonical way servers `await` exec. Now resolved to `exec` and flagged.
+- **`import cp from "node:child_process"; cp.exec(`ls ${x}`)`** via a
+  default/namespace import bound to an arbitrary local name.
+- **`const { exec: sh } = require("child_process"); sh(`ls ${x}`)`** —
+  destructure-rename off `require`.
+- **`import { exec as run } from "node:child_process"; run(...)`** —
+  named-import alias.
+
+New `src/audit/bindings.ts` runs a whole-program pre-pass that resolves
+every local identifier / namespace member proven to originate from
+`child_process` (import or `require("child_process")`) to its canonical
+method, then the scanner attributes the call accordingly. The resolver
+is purely **additive** on top of the existing name-based matching, so it
+can never *lose* a finding, and it only maps bindings whose origin is
+proven — a `promisify(readFile)` or a destructure off another module
+stays clean.
+
+- **String-shell + dynamic-shell bypass.** `objectHasShellTrue` matched
+  only the literal `shell: true`. `{ shell: "/bin/bash" }` (Node runs a
+  real shell for a string shell) slipped through as a mere MEDIUM, and a
+  dynamic `{ shell: shVar }` was not flagged at all. Both are now HIGH
+  `shell_true_option`. `shell: false` / `shell: ""` stay clean.
+- **Sync child_process variants.** `spawnSync` and `execFileSync` were
+  uncovered. `spawnSync("sh", ["-c", x], { shell: true })` and
+  `execFileSync(<dynamic>)` are now flagged alongside their async forms
+  in `spawn_dynamic_file_args`, `exec_file_dynamic`, `shell_true_option`,
+  `spawn_literal_dynamic_args`, `unbounded_buffer` and `missing_timeout`.
+
+### Security — guard arg-type hardening (defense-in-depth)
+
+`guardExec` / `guardSpawn` now reject any non-string element in `args`.
+The TS type is `string[]`, but the library is reachable from untyped JS
+and JSON tool paths where an arg can arrive as a number / object / null.
+Both the allowlist regex (`re.test`) and `spawn` silently coerce such
+values, so a non-string arg could slip past an `argsPattern` the
+operator believed constrained the input (most exposed at the MEDIUM tier
+where `argsPatterns` is empty). `guardSpawn` also gained the explicit
+`Array.isArray(args)` check `guardExec` already had.
+
+### Tests
+
+- `tests/audit-binding-bypass.test.ts` (16) — attack-blocked + benign-
+  allowed for every alias / sync / string-shell shape, plus binding-
+  resolver unit tests.
+- `tests/guard-arg-types.test.ts` (8) — non-string-arg rejection for both
+  guards, with benign string-arg passthrough.
+- `tests/audit-patterns.test.ts` extended (+2) for string/dynamic-shell
+  and `isChildProcessMethod`.
+- Total test count: 149 -> 167. No existing test weakened; the 12-rule
+  catalogue is unchanged (rules broadened, no IDs added or removed).
+
+## [0.1.1] - 2026-05-29
+
+### Added
+
+- Listed on the Official MCP Registry as `io.studiomeyer/stdio-shellguard`
+  (`mcpName` + `server.json` + package-name `bin` alias).
+- Live shields.io badges block + StudioMeyer MCP Stack banner in README.
+
 ## [0.1.0] - 2026-05-07
 
 ### Added
