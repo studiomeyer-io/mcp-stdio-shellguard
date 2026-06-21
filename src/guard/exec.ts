@@ -69,6 +69,20 @@ export async function guardExec(
       toolName: input.toolName,
     });
   }
+  // Defense-in-depth: every arg must be an actual string. The TS type is
+  // `string[]`, but the library is callable from untyped JS / a JSON tool
+  // path where an arg could arrive as a number, object or null. Such a
+  // value is silently coerced by both the allowlist regex (`re.test`) and
+  // `spawn`, so a non-string arg could slip past an argsPattern that the
+  // operator believed constrained the input — most dangerous at the
+  // MEDIUM tier (empty argsPatterns = any args). Reject outright.
+  const badArgIndex = input.args.findIndex((a) => typeof a !== "string");
+  if (badArgIndex !== -1) {
+    throw new ShellguardDenied(
+      `args[${badArgIndex}] must be a string, got ${typeof input.args[badArgIndex]}`,
+      { toolName: input.toolName, index: badArgIndex },
+    );
+  }
 
   const match = deps.registry.match({
     toolName: input.toolName,

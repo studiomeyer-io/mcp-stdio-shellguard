@@ -145,6 +145,21 @@ Exit codes:
 | `unbounded_buffer` | LOW | exec without `maxBuffer` |
 | `missing_timeout` | LOW | exec/spawn without `timeout` |
 
+The scanner resolves *renamed* `child_process` bindings before matching,
+so the dangerous shapes below are caught even when the call goes through an
+alias rather than a literal `child_process.exec`:
+
+- `const execAsync = promisify(exec); execAsync(`...${x}`)`
+- `import cp from "node:child_process"; cp.exec(`...${x}`)`
+- `const { exec: sh } = require("child_process"); sh(`...${x}`)`
+- `import { exec as run } from "node:child_process"; run(...)`
+
+Synchronous variants (`spawnSync`, `execFileSync`) share their async rules,
+and `shell_true_option` also fires on a string shell (`{ shell: "/bin/sh" }`)
+or a dynamic shell value — not just the literal `{ shell: true }`. A
+`promisify` of a non-child_process function, a destructure off another
+module, and `{ shell: false }` stay clean (no false positives).
+
 ## Pragmas
 
 - `// shellguard:ignore-next-line` — suppress one finding
