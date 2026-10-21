@@ -128,6 +128,11 @@ Exit codes:
 - `1` findings present
 - `2` parse / IO errors
 
+Custom `ignoreGlobs` passed to `scanPath` or the `audit_source` MCP tool accept
+at most 128 strings. Each string is limited to 1024 UTF-16 code units and 16
+unescaped opening grouping characters (`(`, `{`, `[`). Inputs above these
+budgets raise a controlled error before matching.
+
 ## Anti-pattern library (12 rules)
 
 | ID | Severity | Triggers on |
