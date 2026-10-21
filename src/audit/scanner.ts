@@ -7,7 +7,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import fg from "fast-glob";
+import { glob } from "tinyglobby";
 import { parse } from "@typescript-eslint/parser";
 import type { TSESTree } from "@typescript-eslint/types";
 import {
@@ -21,6 +21,10 @@ import { resolveBindings, resolveCallMethod } from "./bindings.js";
 import { SUGGESTED_FIX } from "./suggested-fix.js";
 
 export interface AuditScanOptions {
+  /**
+   * At most 128 patterns, each at most 1024 characters and 16 unescaped
+   * opening grouping characters: (, {, [. Exceeding a budget rejects the scan.
+   */
   ignoreGlobs?: string[];
   severityFloor?: AuditSeverity;
   /** File-level cap to keep AST memory bounded. */
@@ -52,6 +56,31 @@ const TARGET_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.cjs"];
 
 const IGNORE_PRAGMA_LINE = /\/\/\s*shellguard:ignore-next-line/;
 const IGNORE_PRAGMA_FILE = /\/\/\s*shellguard:ignore-file/;
+
+function validateGlobPatterns(patterns: readonly string[], option: string): void {
+  if (patterns.length > 128) {
+    throw new Error(`${option} accepts at most 128 glob patterns`);
+  }
+  for (const pattern of patterns) {
+    if (pattern.length > 1024) {
+      throw new Error(`${option} patterns must not exceed 1024 characters`);
+    }
+    let groups = 0;
+    for (let index = 0; index < pattern.length; index++) {
+      const character = pattern[index];
+      if (character === "\\") {
+        index++;
+        continue;
+      }
+      if (character === "(" || character === "{" || character === "[") {
+        groups++;
+        if (groups > 16) {
+          throw new Error(`${option} patterns allow at most 16 unescaped opening grouping characters`);
+        }
+      }
+    }
+  }
+}
 
 function snippetOf(text: string, line: number): string {
   const lines = text.split(/\r?\n/);
@@ -107,6 +136,9 @@ export async function scanPath(
   opts: AuditScanOptions = {},
 ): Promise<AuditScanResult> {
   const start = Date.now();
+  validateGlobPatterns(TARGET_GLOBS, "patterns");
+  validateGlobPatterns(DEFAULT_IGNORE, "ignoreGlobs");
+  validateGlobPatterns(opts.ignoreGlobs ?? [], "ignoreGlobs");
   const ignore = [...DEFAULT_IGNORE, ...(opts.ignoreGlobs ?? [])];
   const maxBytes = opts.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
   const floor: AuditSeverity = opts.severityFloor ?? "LOW";
@@ -129,10 +161,11 @@ export async function scanPath(
   if (stat.isFile()) {
     entries = [rootPath];
   } else {
-    entries = await fg(TARGET_GLOBS, {
+    entries = await glob(TARGET_GLOBS, {
       cwd: rootPath,
       ignore,
       absolute: true,
+      expandDirectories: false,
       onlyFiles: true,
       dot: false,
     });
