@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Replace the unpatched fast-glob/braces audit dependency with tinyglobby.
+- Validate custom ignore patterns before matching: at most 128 patterns,
+  1024 UTF-16 code units per pattern, and 16 unescaped opening grouping
+  characters (`(`, `{`, `[`) per pattern. Over-budget input raises a
+  controlled error.
+
+
 ## [0.1.2] - 2026-06-21
 
 ### Security — audit alias-bypass class closed
