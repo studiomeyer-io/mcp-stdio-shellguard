@@ -34,6 +34,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Verify packed consumer dependency tree and runtime
+        run: npm run test:consumer
+
       - name: Self-audit (lint:self) — must report zero CRITICAL/HIGH
         run: |
           if npm run lint:self -- --severity-floor HIGH; then

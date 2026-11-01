@@ -34,6 +34,16 @@ Or run the audit CLI directly without installing:
 npx -y -p mcp-stdio-shellguard mcp-shellguard-audit scan ./src
 ```
 
+## Package contents and maintenance
+
+Version 0.1.3 includes the dependency bundle described below.
+
+The package ships @typescript-eslint/typescript-estree plus TypeScript and the required parser dependency closure through bundledDependencies. A root-only npm override does not constrain an installed package's dependency tree; the included closure carries the checked versions to consumers. The bundle preparation checks @typescript-eslint/typescript-estree 8.72.1 and minimatch 11.0.3, then changes only the parser manifest dependency range from minimatch ^10.2.2 to ^11.0.3. Third-party source files and package version numbers are unchanged. The AST audit calls typescript-estree.parse directly, with TypeScript included explicitly to satisfy the parser dependency tree; no ESLint runtime is required.
+
+The measured archive is approximately **4.92 MB compressed and 26.04 MB unpacked** (decimal MB). Bundling increases download and disk use; a security update to an included dependency requires an updated package archive.
+
+For maintenance, run npm ci and npm run test:consumer from the repository checkout. npm pack runs prepack automatically: it builds the package and prepares the declared bundle. The consumer check packs twice, verifies identical bytes, installs the actual archive in a fresh project, checks npm ls and both dependency audits, and exercises the installed CLI or runtime. Review dependency updates together with the locked bundle and license proofs before distributing a new archive. The archive's dist/bundled-dependencies.json records the bundle and manifest adjustments.
+
 ## What it gives you
 
 Three layers, opt-in piecewise:
@@ -188,3 +198,5 @@ that closes the class. Inspired by AWS Linux `seccomp` + Chromium sandbox tiers.
 ## License
 
 MIT — Copyright (c) 2026 Matthias Meyer (StudioMeyer)
+
+Bundled dependencies retain their complete upstream license texts in the archive. The package license applies to this project's own code; bundled third-party packages retain their respective terms. The consumer check verifies each approved package version's full license file, or its complete README license section, against pinned content hashes from integrity-verified official npm artifacts. Whitespace and line-ending differences are accepted; missing, empty or partial legal text is rejected.

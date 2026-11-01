@@ -13,7 +13,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import { scanPath } from "../src/audit/scanner.js";
-import { parse } from "@typescript-eslint/parser";
+import { parse } from "@typescript-eslint/typescript-estree";
 import type { TSESTree } from "@typescript-eslint/types";
 import { resolveBindings, resolveCallMethod } from "../src/audit/bindings.js";
 
@@ -34,7 +34,7 @@ function firstCallNamed(src: string, name: string): TSESTree.CallExpression {
   const ast = parse(src, {
     loc: true,
     range: true,
-    ecmaVersion: "latest",
+
     sourceType: "module",
   });
   let found: TSESTree.CallExpression | null = null;
@@ -153,7 +153,7 @@ describe("alias bypass — renamed imports / require", () => {
       parse(`const { exec } = require("./my-shell-lib");`, {
         loc: true,
         range: true,
-        ecmaVersion: "latest",
+
         sourceType: "module",
       }) as unknown as TSESTree.Node,
     );
@@ -272,7 +272,7 @@ describe("binding resolver unit — resolveCallMethod", () => {
     const ast = parse(src, {
       loc: true,
       range: true,
-      ecmaVersion: "latest",
+
       sourceType: "module",
     }) as unknown as TSESTree.Node;
     const bindings = resolveBindings(ast);
@@ -285,7 +285,7 @@ describe("binding resolver unit — resolveCallMethod", () => {
     const ast = parse(src, {
       loc: true,
       range: true,
-      ecmaVersion: "latest",
+
       sourceType: "module",
     }) as unknown as TSESTree.Node;
     const bindings = resolveBindings(ast);

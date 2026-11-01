@@ -28,6 +28,19 @@ describe("server — TOOLS catalogue", () => {
     }
   });
 
+  it("preserves fields, record values and optionality in generated input schemas", () => {
+    const exec = TOOLS.find((tool) => tool.name === "guard_exec")!.inputSchema;
+    expect(exec.properties).toMatchObject({
+      command: { type: "string", minLength: 1 },
+      args: { type: "array", items: { type: "string" } },
+      env: { type: "object", additionalProperties: { type: "string" } },
+    });
+    expect(exec.required).toEqual(expect.arrayContaining(["toolName", "command", "args"]));
+    expect(exec.required).not.toContain("env");
+    const report = TOOLS.find((tool) => tool.name === "audit_report")!.inputSchema;
+    expect(report.required).not.toContain("findings");
+  });
+
   it("destructive tools have destructiveHint=true and readOnlyHint=false", () => {
     const destructive = TOOLS.filter((t) => t.name.startsWith("guard_"));
     for (const t of destructive) {

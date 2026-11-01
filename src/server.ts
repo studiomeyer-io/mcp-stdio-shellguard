@@ -67,7 +67,7 @@ const VERSION = readVersion();
 // Tool input schemas (zod)
 // ---------------------------------------------------------------------------
 
-const RecordEnv = z.record(z.string());
+const RecordEnv = z.record(z.string(), z.string());
 
 const GuardExecArgs = z.object({
   toolName: z.string().min(1),
@@ -104,7 +104,7 @@ const AuditSourceArgs = z.object({
 });
 
 const AuditReportArgs = z.object({
-  findings: z.unknown(),
+  findings: z.unknown().optional(),
   format: z.enum(["markdown", "json", "sarif"]),
 });
 
@@ -195,63 +195,19 @@ export const TOOLS: Tool[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Minimal zod -> JSON-Schema bridge
-//
-// We keep this in-tree rather than depending on `zod-to-json-schema` because
-// the SDK's schema renderer also accepts a hand-rolled JSON Schema. The
-// shape we emit is sufficient for the MCP Inspector + tools/list contract.
+// Supported Zod input-schema conversion. The root stays closed, matching
+// the reference server's existing tools/list contract.
 // ---------------------------------------------------------------------------
 
-function zodToJsonSchema(schema: z.ZodTypeAny): {
-  type: "object";
-  properties: Record<string, object>;
-  required: string[];
-  additionalProperties: false;
-} {
-  if (!(schema instanceof z.ZodObject)) {
-    throw new Error("zodToJsonSchema only handles z.object roots");
-  }
-  const shape = schema.shape as Record<string, z.ZodTypeAny>;
-  const properties: Record<string, object> = {};
-  const required: string[] = [];
-  for (const [key, value] of Object.entries(shape)) {
-    properties[key] = zodFieldToJson(value);
-    if (!value.isOptional()) {
-      required.push(key);
-    }
-  }
-  return { type: "object", properties, required, additionalProperties: false };
-}
-
-function zodFieldToJson(value: z.ZodTypeAny): object {
-  // Unwrap optional / default / nullable
-  let inner: z.ZodTypeAny = value;
-  while (
-    inner instanceof z.ZodOptional ||
-    inner instanceof z.ZodDefault ||
-    inner instanceof z.ZodNullable
-  ) {
-    inner = inner._def.innerType as z.ZodTypeAny;
-  }
-
-  if (inner instanceof z.ZodString) return { type: "string" };
-  if (inner instanceof z.ZodNumber) return { type: "number" };
-  if (inner instanceof z.ZodBoolean) return { type: "boolean" };
-  if (inner instanceof z.ZodEnum) {
-    return { type: "string", enum: [...inner._def.values] };
-  }
-  if (inner instanceof z.ZodArray) {
-    return { type: "array", items: zodFieldToJson(inner._def.type) };
-  }
-  if (inner instanceof z.ZodRecord) {
-    return {
-      type: "object",
-      additionalProperties: zodFieldToJson(inner._def.valueType),
-    };
-  }
-  if (inner instanceof z.ZodObject) return zodToJsonSchema(inner);
-  if (inner instanceof z.ZodUnknown || inner instanceof z.ZodAny) return {};
-  return {};
+function zodToJsonSchema(schema: z.ZodObject): Tool["inputSchema"] {
+  const jsonSchema = z.toJSONSchema(z.strictObject(schema.shape), { target: "draft-07", io: "input" });
+  const properties = Object.fromEntries(
+    Object.entries(jsonSchema.properties ?? {}).map(([key, value]) => [
+      key,
+      typeof value === "boolean" ? (value ? {} : { not: {} }) : value,
+    ]),
+  );
+  return { ...jsonSchema, type: "object", properties };
 }
 
 // ---------------------------------------------------------------------------
