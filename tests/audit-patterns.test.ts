@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parse } from "@typescript-eslint/parser";
+import { parse } from "@typescript-eslint/typescript-estree";
 import type { TSESTree } from "@typescript-eslint/types";
 import {
   PATTERN_RULES,
@@ -13,7 +13,7 @@ function firstCall(src: string): TSESTree.CallExpression {
   const ast = parse(src, {
     loc: true,
     range: true,
-    ecmaVersion: "latest",
+
     sourceType: "module",
   });
   let found: TSESTree.CallExpression | null = null;
@@ -99,7 +99,7 @@ describe("evaluateCall — CRITICAL patterns", () => {
     const ast = parse("const x = Function('a', 'return a')();", {
       loc: true,
       range: true,
-      ecmaVersion: "latest",
+
       sourceType: "module",
     });
     let inner: TSESTree.CallExpression | null = null;

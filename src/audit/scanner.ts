@@ -1,6 +1,6 @@
 /**
  * Audit scanner — walks TypeScript/JavaScript sources via
- * @typescript-eslint/parser, applies PATTERN_RULES per CallExpression,
+ * @typescript-eslint/typescript-estree, applies PATTERN_RULES per CallExpression,
  * emits AuditFinding[]. Honours `// shellguard:ignore-next-line`
  * inline pragmas.
  */
@@ -8,7 +8,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { glob } from "tinyglobby";
-import { parse } from "@typescript-eslint/parser";
+import { parse } from "@typescript-eslint/typescript-estree";
 import type { TSESTree } from "@typescript-eslint/types";
 import {
   evaluateCall,
@@ -203,7 +203,6 @@ export async function scanPath(
         range: true,
         comment: false,
         tokens: false,
-        ecmaVersion: "latest",
         sourceType: "module",
         jsx: file.endsWith(".tsx") || file.endsWith(".jsx"),
       }) as TSESTree.Program;

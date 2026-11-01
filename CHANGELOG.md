@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.3] - 2026-11-01
+
+
+### Dependency maintenance
+
+- Use @typescript-eslint/typescript-estree.parse directly for the AST audit, removing the unused ESLint runtime layer. Bundle the pinned parser closure and explicit TypeScript dependency so consumers receive a complete parser/peer tree.
+- Retain direct Zod ^4.6.7 validation and draft-07 input schemas, closed object roots and optional unknown findings. The unused Inspector dev dependency stays removed; inspect:smoke remains the in-repository JSON-RPC probe.
+- Run build plus version-checked prepack preparation. Disclose the @typescript-eslint/typescript-estree 8.72.1 minimatch range adjustment (^10.2.2 to ^11.0.3); preserve third-party source and version fields. Root-only overrides are insufficient for installed consumers.
+- Preserve full upstream legal text for all 18 bundled package instances. Check actual tarball payloads against approved version-specific full-text hashes from official integrity-verified npm archives, including complete README license sections where applicable. Whitespace-only differences are accepted; 3 missing/empty/partial-license regression cases fail as intended.
+- The checked Node 20/22 runs pass 188 tests per runtime. Two fresh installed consumers have consistent npm ls trees and zero findings in all-dependency/production audits. Repeated packs and Node 20/22 archive bytes match for the checked inputs.
+- Measured archive size: approximately 4.92 MB compressed / 26.04 MB unpacked. This bundle is larger because it includes its selected dependency closure.
 
 ### Security
 

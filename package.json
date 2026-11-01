@@ -1,6 +1,6 @@
 {
   "name": "mcp-stdio-shellguard",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "mcpName": "io.studiomeyer/stdio-shellguard",
   "description": "Defense-in-depth bundle for MCP stdio servers: drop-in guard for child_process.exec/spawn, AST audit CLI for unsanitized shell calls, and a reference MCP server that exposes both. Closes the Ox-Security 200k-server stdio-RCE class.",
   "type": "module",
@@ -30,11 +30,12 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "prepack": "npm run build",
+    "prepack": "npm run build && node scripts/prepare-bundles.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint:self": "node dist/cli.js scan src --severity-floor LOW",
-    "inspect:smoke": "node scripts/inspect-smoke.mjs"
+    "inspect:smoke": "node scripts/inspect-smoke.mjs",
+    "test:consumer": "node scripts/check-consumer.mjs"
   },
   "keywords": [
     "mcp",
@@ -64,19 +65,27 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
-    "@typescript-eslint/parser": "^8.59.2",
     "@typescript-eslint/types": "^8.59.2",
     "commander": "^12.1.0",
     "tinyglobby": "^0.2.17",
     "picomatch": "^4.0.4",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7",
+    "@typescript-eslint/typescript-estree": "^8.72.1",
+    "typescript": "^5.6.3"
   },
   "devDependencies": {
-    "@modelcontextprotocol/inspector": "^0.21.2",
     "@types/node": "^22.10.0",
     "@types/picomatch": "^3.0.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.6.3",
     "vitest": "^4.1.11"
-  }
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.3"
+    }
+  },
+  "bundledDependencies": [
+    "@typescript-eslint/typescript-estree",
+    "typescript"
+  ]
 }

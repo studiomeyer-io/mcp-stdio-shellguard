@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parse } from "@typescript-eslint/parser";
+import { parse } from "@typescript-eslint/typescript-estree";
 import type { TSESTree } from "@typescript-eslint/types";
 import { AllowlistRegistry } from "../src/guard/allowlist.js";
 import { canonicalHash } from "../src/guard/canonical.js";
@@ -29,7 +29,7 @@ function firstCall(src: string): TSESTree.CallExpression {
   const ast = parse(src, {
     loc: true,
     range: true,
-    ecmaVersion: "latest",
+
     sourceType: "module",
   });
   let found: TSESTree.CallExpression | null = null;
